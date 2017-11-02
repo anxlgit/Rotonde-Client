@@ -3,120 +3,109 @@ function Feed(feed_urls)
   this.feed_urls = feed_urls;
   this.el = document.createElement('div'); this.el.id = "feed";
 
+  this.queue = [];
+  this.portals = [];
+
   this.urls = {};
   this.filter = "";
 
-  this.install = function(el)
+  this.install = function()
   {
-    el.appendChild(this.el);
-    this.update();
+    r.el.appendChild(r.home.feed.el);
+    r.home.feed.start();
+  }
+
+  this.start = function()
+  {
+    console.log(r.home.portal)
+
+    this.queue.push(r.home.portal.url);
+    for(id in r.home.portal.json.port){
+      var url = r.home.portal.json.port[id];
+      this.queue.push(url)
+    }
+    this.next();
+
+    setInterval(r.home.feed.next, 500);
+  }
+
+  this.last_update = Date.now();
+
+  this.next = async function()
+  {
+    if(r.home.feed.queue.length < 1){ console.log("Reached end of queue"); r.home.feed.update_log(); return; }
+    if(Date.now() - r.home.feed.last_update < 500){ return; }
+
+    var url = r.home.feed.queue[0];
+
+    r.home.feed.queue = r.home.feed.queue.splice(1);
+
+    var portal = new Portal(url);
+    portal.connect()
+    r.home.feed.update_log();
+    r.home.feed.last_update = Date.now();
+  }
+
+  this.register = async function(portal)
+  {
+    console.info("connected to ",portal.json.name,this.portals.length+"|"+this.queue.length);
+
+    this.portals.push(portal);
+    var activity = portal.archive.createFileActivityStream("portal.json");
+    activity.addEventListener('changed', e => {
+      r.home.feed.refresh();
+    });
+    r.home.update();
+    r.home.feed.refresh();
+  }
+
+  this.update_log = function()
+  {
+    if(r.home.feed.queue.length == 0 ){
+      r.home.log("Idle.");
+    }
+    else{
+      var progress = (r.home.feed.portals.length/parseFloat(r.home.portal.json.port.length)) * 100;
+      r.home.log("Connecting.. "+parseInt(progress)+"%");
+    }
   }
 
   this.refresh = function()
   {
-    var feed_html = "";
+    console.log("refreshing feed..");
+
     var entries = [];
-    var portals = [];
-    for(id in feed_urls){
-      var portal = r.index.lookup_url(feed_urls[id]);
-      if(!portal) { continue; }
-      portals.push(portal);
-      entries = entries.concat(this.entries_for_portal(portal));
+
+    for(id in r.home.feed.portals){
+      var portal = r.home.feed.portals[id];
+      entries = entries.concat(portal.entries())
     }
-    if(feed_urls.length > 0 && portals.length === 0){
-      this.el.innerHTML = "Fetching "+this.feed_urls.length+" feeds..";
-      return;
-    }
-    var owner_portal = r.index.make_portal(r.portal.data, r.portal.data.dat, r.portal.archive);
-    portals.push(owner_portal);
-    entries = entries.concat(this.entries_for_portal(owner_portal));
+
     var sorted_entries = entries.sort(function (a, b) {
       return a.timestamp < b.timestamp ? 1 : -1;
     });
 
-    for(id in portals) {
-      var portal = portals[id];
-      var url = portal.url;
-      var last_entry = portal.feed[portal.feed.length-1];
-      var is_active = last_entry ? Math.floor((new Date() - last_entry.timestamp) / 1000) : 999999;
-      var rune = portal.port.indexOf(r.portal.data.dat) > -1 || portal.dat === r.portal.data.dat ? "@" : "~";
-
-      if(!last_entry){ continue; }
-      if(is_active > 190000 && portal.name != r.portal.data.name){
-        feed_html += "<ln title='"+(timeSince(last_entry.timestamp))+"' class='dead' data-operation='un"+url+"'>"+rune+""+portal.name+"</ln>";
-      }
-      else{
-        feed_html+= "<ln title='"+(timeSince(last_entry.timestamp))+"' class='"+(is_active < 150000 ? "active" : "inactive")+"'><a href='"+url+"'>"+rune+""+portal.name+"</a></ln>";
-      }
-    }
-    r.portal.port_list_el.innerHTML = feed_html;
-
-    var html = this.filter ? "<c class='clear_filter' data-operation='clear_filter' data-validate='validate'>Filtering by "+this.filter+"</c>" : "";
+    var feed_html = r.home.feed.filter ? "<c class='clear_filter' data-operation='clear_filter' data-validate='validate'>Filtering by <b>"+r.home.feed.filter+"</b></c>" : "";
     var c = 0;
     for(id in sorted_entries){
       var entry = sorted_entries[id];
       if(!entry || entry.timestamp > new Date()) { continue; }
-      if(!entry.is_visible()){ continue; }
-      html += entry.to_html();
+      if(!entry.is_visible(r.home.feed.filter)){ continue; }
+      feed_html += entry.to_html();
       if(c > 40){ break; }
       c += 1;
     }
-    html += "<div class='entry'><t class='portal'>$rotonde</t><t class='timestamp'>Just now</t><hr/><t class='message' style='font-style:italic'>Welcome to #rotonde, a decentralized social network. Share your dat:// url with others and add theirs into the input bar to get started.</t></div>"
-    this.el.innerHTML = html;
-  }
 
-  this.entries_for_portal = function(portal)
-  {
-    return portal.feed
-      .filter((entry) => {
-        if (!this.filter) return true;
-        if ("@"+portal.name === this.filter) return true;
-        return entry.message.toLowerCase().includes(this.filter.toLowerCase());
-      }).map((entry, entry_id) => new Entry(
-        Object.assign({}, entry, {
-          portal: portal.name,
-          dat: portal.archive.url,
-          id: entry_id,
-          seed: portal.port.indexOf(r.portal.data.dat) > -1 || portal.dat === r.portal.data.dat
-        })
-      ));
-  }
-
-  this.debounced_refresh = debounce(() => this.refresh(), 1000, false);
-
-  this.update = function()
-  {
-    this.refresh();
-  }
-
-  this.portal_changed = function(key)
-  {
-    this.debounced_refresh();
+    feed_html += "<div class='entry'><t class='portal'>$rotonde</t><t class='timestamp'>Just now</t><hr/><t class='message' style='font-style:italic'>Welcome to #rotonde, a decentralized social network. Share your dat:// url with others and add theirs into the input bar to get started.</t></div>"
+    r.home.feed.el.innerHTML = feed_html;
   }
 }
 
-// See https://davidwalsh.name/javascript-debounce-function
-function debounce(func, wait, immediate)
-{
-  var timeout;
-  return function() {
-    var context = this, args = arguments;
-    var later = function() {
-      timeout = null;
-      // if (!immediate) func.apply(context, args);
-      func.apply(context, args);
-    };
-    var callNow = immediate && !timeout;
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-    if (callNow) func.apply(context, args);
-  };
-};
-
 function portal_from_hash(hash)
 {
-  var portal = r.index.lookup_url(hash);
-  if(portal){ return "@"+portal.name; }
+  for(id in r.home.feed.portals){
+    if(hash == r.home.feed.portals[id].url){ return "@"+r.home.feed.portals[id].json.name; }
+  }
   return hash.substr(0,12)+".."+hash.substr(hash.length-3,2);
 }
 
