@@ -1,7 +1,7 @@
 function Rotonde(client_url)
 {
   this.client_url = client_url;
-  this.client_version = "0.1.51";
+  this.client_version = "0.1.62";
 
   // SETUP
 
@@ -88,6 +88,7 @@ function Rotonde(client_url)
   {
     if(!e.target.getAttribute("data-operation")){ return; }
     e.preventDefault();
+
     r.operator.inject(e.target.getAttribute("data-operation"));
     window.scrollTo(0, 0);
     if(!e.target.getAttribute("data-validate")){ return; }
@@ -102,11 +103,9 @@ function Rotonde(client_url)
 
   this.reset_with_name = async function()
   {
-    var archive = new DatArchive(window.location.toString())
-    var portal_str = await r.portal.archive.readFile('/dat.json',{timeout: 1000});
-    var name = JSON.parse(portal_str).title.replace(/\W/g, '');
-    this.portal.data = {name: name,desc: "new_desc",port:[],feed:[],site:"",dat:""}
-    this.portal.save();
+    this.home.portal.json = {name: name,desc: "new_desc",port:[],feed:[],site:"",dat:""}
+    this.home.save();
+    setTimeout(r.home.feed.refresh, 250);
   }
 }
 
