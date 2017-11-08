@@ -1,7 +1,7 @@
 function Rotonde(client_url)
 {
   this.client_url = client_url;
-  this.client_version = "0.1.62";
+  this.client_version = "0.1.68";
 
   // SETUP
 
@@ -62,6 +62,25 @@ function Rotonde(client_url)
     }
   }
 
+  // Common functions
+
+  this.escape_html = function(m)
+  {
+    return m
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  this.escape_attr = function(m)
+  {
+    // This assumes that all attributes are wrapped in '', never "".
+    return m
+      .replace(/'/g, "&#039;");
+  }
+
   // START
 
   this.el = document.createElement('div');
@@ -93,7 +112,6 @@ function Rotonde(client_url)
     window.scrollTo(0, 0);
     if(!e.target.getAttribute("data-validate")){ return; }
     r.operator.validate();
-    setTimeout(r.home.feed.refresh, 250);
   }
 
   this.reset = function()
@@ -105,7 +123,7 @@ function Rotonde(client_url)
   {
     this.home.portal.json = {name: name,desc: "new_desc",port:[],feed:[],site:"",dat:""}
     this.home.save();
-    setTimeout(r.home.feed.refresh, 250);
+    r.home.feed.refresh("reset_with_name");
   }
 }
 

@@ -8,6 +8,8 @@ function Portal(url)
   this.json = null;
   this.archive = new DatArchive(this.url);
 
+  this.last_entry = null;
+
   this.start = async function()
   {
     var file = await this.archive.readFile('/portal.json',{timeout: 2000}).then(console.log("done!"));
@@ -79,19 +81,16 @@ function Portal(url)
     p.json = JSON.parse(p.file)
   }
 
-  this.last_entry = function()
-  {
-    return this.entries()[p.json.feed.length-1];
-  }
-
   this.entries = function()
   {
     var e = [];
     for(id in this.json.feed){
       var entry = new Entry(this.json.feed[id],p);
       entry.id = id;
+      entry.is_mention = entry.detect_mention();
       e.push(entry);
     }
+    this.last_entry = e[p.json.feed.length-1];
     return e;
   }
 
@@ -117,20 +116,35 @@ function Portal(url)
 
   this.time_offset = function() // days
   {
-    return (Date.now() - this.updated())/1000;
+    return parseInt((Date.now() - this.updated())/1000);
   }
 
-  this.badge = function()
+  this.badge = function(special_class)
   {
     var html = "";
 
     html += "<img src='"+this.archive.url+"/media/content/icon.svg'/>";
-    html += "<a data-operation='"+this.url+"' href='"+this.url+"'>"+this.relationship()+this.json.name+"</a> ";
-    html += this.last_entry() ? "<t class='time_ago'>Updated "+this.last_entry().time_ago()+" ago</t>" : "<t class='time_ago'>No entries</t>"
-    html += "<br /><span style='float:right; color:#aaa; font-size:11px; padding-right:10px'>"+(this.json.client_version ? this.json.client_version+" " : "Custom Client ")+"</span>"
-    html += "<i>"+this.json.port.length+" Portals</i>"
+    html += "<a data-operation='"+this.url+"' href='"+this.url+"'>"+this.relationship()+r.escape_html(this.json.name)+"</a> ";
 
-    return "<yu class='badge'>"+html+"</yu>";
+    html += "<br />"
+    
+    if(this.last_entry){
+      html +=  "<span class='time_ago'>"+this.last_entry.time_ago()+" ago</span>" 
+    }
+    
+    html += "<br />"
+    // Version
+    if(this.json.client_version){
+      // Used to check if the rotonde version matches when multiple version lines are present.
+      var client_version_main = this.json.client_version.split(/\r\n|\n/)[0];
+      this.json.client_version = r.escape_html(this.json.client_version)
+        .split(/\r\n|\n/).slice(0, 2).join("<br>"); // Allow 2 lines for mod versions
+      html += "<span class='version "+(client_version_main == r.home.portal.json.client_version ? 'same' : '')+"'>"+this.json.client_version+"</span>"
+    }
+    
+    html += "<span>"+this.json.port.length+" Portals</span>"
+
+    return "<yu class='badge "+special_class+"' data-operation='un"+this.url+"'>"+html+"</yu>";
   }
 
   this.is_known = function()
