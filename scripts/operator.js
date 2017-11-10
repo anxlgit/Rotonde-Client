@@ -165,8 +165,7 @@ function Operator(el)
 
   this.commands.dat = function(p,option)
   {
-    option = option.replace("dat://","").replace(/\//g,"").trim();
-    if(option.length != 64){ console.log("Invalid url: ",option); return; }
+    option = to_hash(option);
 
     for(id in r.home.portal.json.port){
       var port_url = r.home.portal.json.port[id];
@@ -187,18 +186,16 @@ function Operator(el)
 
   this.commands.filter = function(p,option)
   {
-    var target = option ? option : "";
+    var target = option || "";
     window.location.hash = target;
     r.home.feed.target = target;
     r.home.feed.el.className = target;
-    r.home.feed.filter = p;
+    r.home.feed.filter = p || "";
   }
 
   this.commands.clear_filter = function()
   {
-    window.location.hash = "";
-    r.home.feed.filter = "";
-    r.home.feed.target = "";
+    r.operator.commands.filter();
   }
 
   this.commands.quote = function(p,option)
@@ -250,10 +247,10 @@ function Operator(el)
   }
 
   this.commands['++'] = function(p, option) {
-    o.commands.page('++');
+    r.operator.commands.page('++');
   }
   this.commands['--'] = function(p, option) {
-    o.commands.page('--');
+    r.operator.commands.page('--');
   }
   this.commands.page = function(p, option) {
     if (p === '' || p == null)
