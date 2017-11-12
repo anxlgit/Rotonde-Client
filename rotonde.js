@@ -1,7 +1,7 @@
 function Rotonde(client_url)
 {
   this.client_url = client_url;
-  this.client_version = "0.1.8";
+  this.client_version = "0.1.9";
 
   // SETUP
 
@@ -109,7 +109,6 @@ function Rotonde(client_url)
     e.preventDefault();
 
     r.operator.inject(e.target.getAttribute("data-operation"));
-    window.scrollTo(0, 0);
     if(!e.target.getAttribute("data-validate")){ return; }
     r.operator.validate();
   }
@@ -121,7 +120,15 @@ function Rotonde(client_url)
 
   this.reset_with_name = async function()
   {
-    this.home.portal.json = {name: name,desc: "new_desc",port:[],feed:[],site:"",dat:""}
+    this.home.portal.json = {
+      name: name,
+      desc: "new_desc",
+      port: [],
+      feed: [],
+      site: "",
+      // Deprecated but required to keep old versions working as long as possible.
+      dat: ""
+    };
     this.home.save();
     r.home.feed.refresh("reset_with_name");
   }

@@ -6,6 +6,11 @@ function Portal(url)
   this.file = null;
   this.json = null;
   this.archive = new DatArchive(this.url);
+  // Resolve "masked" (f.e. hashbase) dat URLs to "hashed" (dat://0123456789abcdef/) one.
+  DatArchive.resolveName(this.url).then(hash => {
+    if (!hash) return;
+    this.dat = "dat://"+hash+"/";
+  });
 
   this.last_entry = null;
 
@@ -117,13 +122,12 @@ function Portal(url)
     return e;
   }
 
-  this.relationship = function(target = r.home.url)
+  this.relationship = function(target = r.home.portal.hashes())
   {
-    target = to_hash(target);
+    if (has_hash(this, target)) return create_rune("portal", "self");
+    if (has_hash(this.json.port, target)) return create_rune("portal", "both");
 
-    if (has_hash(this.json.port, target)) return "@";
-
-    return "~";
+    return create_rune("portal", "follow");
   }
 
   this.updated = function()
@@ -167,6 +171,15 @@ function Portal(url)
       container.appendChild(this.badge_element);
     }
     return this.badge_element;
+  }
+
+  this.badge_remove = function() {
+    if (this.badge_element == null)
+      return;
+    // Simpler alternative than elem.parentElement.remove(elem);
+    this.badge_element.remove();
+    this.badge_element = null;
+    this.badge_element_html = null;
   }
 
   this.badge = function(special_class)
@@ -213,7 +226,7 @@ function Portal(url)
     var hashes = [];
     hashes.push(to_hash(this.url));
     hashes.push(to_hash(this.archive.url));
-    hashes.push(to_hash(this.json.dat));
+    hashes.push(to_hash(this.dat));
     // Remove falsy entries.
     for (var i = 0; i < hashes.length; i++) {
       if (!hashes[i]) {
@@ -233,7 +246,7 @@ function Portal(url)
 
     for (id in portals) {
       var lookup = portals[id];
-      if (has_hash(hashes, lookup.hashes()))
+      if (has_hash(hashes, lookup))
         return true;
     }
 
